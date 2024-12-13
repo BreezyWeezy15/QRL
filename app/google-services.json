@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "962815393230",
+    "firebase_url": "https://monito-9fb7e-default-rtdb.firebaseio.com",
+    "project_id": "monito-9fb7e",
+    "storage_bucket": "monito-9fb7e.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:962815393230:android:db3fb056d7332ac6837f9f",
+        "android_client_info": {
+          "package_name": "com.app.lockcompose"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-JoblkMsQGiqGTE6kNJx9epMrlIiky5Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:962815393230:android:08d5177ef414f235837f9f",
+        "android_client_info": {
+          "package_name": "com.app.lockcomposeChild"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-JoblkMsQGiqGTE6kNJx9epMrlIiky5Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:962815393230:android:38e40f04ccc676c0837f9f",
+        "android_client_info": {
+          "package_name": "com.app.lockcomposeLock"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-JoblkMsQGiqGTE6kNJx9epMrlIiky5Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
