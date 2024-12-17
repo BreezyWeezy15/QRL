@@ -62,7 +62,6 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
@@ -70,7 +69,7 @@ fun ShowAppList() {
     val context = LocalContext.current.applicationContext as Application
     val selectedApps = remember { mutableStateListOf<InstalledApps>() }
     val isLoading = remember { mutableStateOf(true) }
-
+    val profileType = remember { mutableStateOf("Child") }  // Default value
 
     LaunchedEffect(Unit) {
         val serviceIntent = Intent(context, AppLockService::class.java)
@@ -78,9 +77,10 @@ fun ShowAppList() {
     }
 
     LaunchedEffect(Unit) {
-        fetchAppsFromFirebase { apps ->
+        fetchAppsFromFirebase { apps, type ->
             selectedApps.clear()
             selectedApps.addAll(apps)
+            profileType.value = type  // Set profile type
             isLoading.value = false
         }
     }
@@ -89,7 +89,7 @@ fun ShowAppList() {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = "Lock App", color = Color.Black)
+                    Text(text = profileType.value, color = Color.Black)  // Set title dynamically
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.LightGray
@@ -114,9 +114,7 @@ fun ShowAppList() {
             ) {
                 items(selectedApps) { app ->
                     AppListItem(
-                        app = app,
-                        interval = app.interval,
-                        pinCode = app.pinCode
+                        app = app
                     )
                 }
             }
@@ -125,7 +123,7 @@ fun ShowAppList() {
 }
 
 @Composable
-fun AppListItem(app: InstalledApps, interval: String, pinCode: String) {
+fun AppListItem(app: InstalledApps) {
     val context = LocalContext.current
 
     Card(
@@ -165,35 +163,9 @@ fun AppListItem(app: InstalledApps, interval: String, pinCode: String) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Column(
-                modifier = Modifier.padding(start = 8.dp)
-            ) {
-                Text(
-                    text = "Interval: $interval Min",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Pin Code: $pinCode",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
         }
     }
 }
-
-
-data class InstalledApps(
-    val packageName: String,
-    val name: String,
-    val icon: Drawable?,
-    val interval: String,
-    val pinCode: String
-)
 
 fun checkForAppUpdate(context: Context) {
     val appUpdateManager = AppUpdateManagerFactory.create(context)
@@ -211,20 +183,25 @@ fun checkForAppUpdate(context: Context) {
     }
 }
 
-private fun fetchAppsFromFirebase(onAppsFetched: (List<InstalledApps>) -> Unit) {
+private fun fetchAppsFromFirebase(onAppsFetched: (List<InstalledApps>, String) -> Unit) {
+
     val database = FirebaseDatabase.getInstance().reference
     val appsListRef = database.child("childApp")
 
     appsListRef.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(dataSnapshot: DataSnapshot) {
             val updatedList = mutableListOf<InstalledApps>()
+            var profileType = "Child"  // Default value
 
             for (childSnapshot in dataSnapshot.children) {
                 val packageName = childSnapshot.child("package_name").getValue(String::class.java) ?: ""
                 val name = childSnapshot.child("name").getValue(String::class.java) ?: ""
                 val base64Icon = childSnapshot.child("icon").getValue(String::class.java) ?: ""
+                val type = childSnapshot.child("profile_type").getValue(String::class.java) ?: "Child"
                 val interval = childSnapshot.child("interval").getValue(String::class.java) ?: ""
                 val pinCode = childSnapshot.child("pin_code").getValue(String::class.java) ?: ""
+
+                profileType = type
 
                 val iconBitmap = base64ToBitmap(base64Icon)
 
@@ -233,11 +210,12 @@ private fun fetchAppsFromFirebase(onAppsFetched: (List<InstalledApps>) -> Unit) 
                     name = name,
                     icon = iconBitmap,
                     interval = interval,
-                    pinCode = pinCode
+                    pinCode = pinCode,
+                    profileType = type
                 )
                 updatedList.add(installedApp)
             }
-            onAppsFetched(updatedList)
+            onAppsFetched(updatedList, profileType)  // Pass both the apps and profile type
         }
 
         override fun onCancelled(databaseError: DatabaseError) {
@@ -245,7 +223,6 @@ private fun fetchAppsFromFirebase(onAppsFetched: (List<InstalledApps>) -> Unit) 
         }
     })
 }
-
 
 fun base64ToBitmap(base64String: String): Drawable? {
     return try {
@@ -257,3 +234,12 @@ fun base64ToBitmap(base64String: String): Drawable? {
         null
     }
 }
+
+data class InstalledApps(
+    val packageName: String,
+    val name: String,
+    val icon: Drawable?,
+    val interval: String = "",
+    val pinCode: String = "",
+    val profileType: String = ""
+)

@@ -128,7 +128,7 @@ class AppLockService : Service() {
     private fun showLockScreen(packageName: String) {
         val lockIntent = Intent(this, LockScreenActivity::class.java).apply {
             putExtra("PACKAGE_NAME", packageName)
-            putExtra("PIN_CODE", appPinCodes[packageName]) // Pass the correct PIN code
+            putExtra("PIN_CODE", appPinCodes[packageName])
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         startActivity(lockIntent)

@@ -37,6 +37,7 @@ class RecentAppsAccessibilityService : AccessibilityService() {
 
     private lateinit var database: DatabaseReference
     private val appPinCodes = mutableMapOf<String, String>()
+    private var profileType = ""
 
     companion object {
         private const val TAG = "RecentAppsService"
@@ -57,7 +58,7 @@ class RecentAppsAccessibilityService : AccessibilityService() {
                 for (childSnapshot in dataSnapshot.children) {
                     val packageName = childSnapshot.child("package_name").getValue(String::class.java) ?: ""
                     val pinCode = childSnapshot.child("pin_code").getValue(String::class.java) ?: ""
-
+                    profileType = childSnapshot.child("profile_type").getValue(String::class.java) ?: ""
                     if (packageName.isNotEmpty() && pinCode.isNotEmpty()) {
                         appPinCodes[packageName] = pinCode
                         lockedApps.add(packageName)
@@ -110,6 +111,12 @@ class RecentAppsAccessibilityService : AccessibilityService() {
                 PixelFormat.TRANSPARENT
             )
 
+            if (profileType in listOf("Child", "Teen", "Pre-K")) {
+                lockUi.visibility = View.GONE
+            } else {
+                lockUi.visibility = View.VISIBLE
+            }
+
             overlayView = overlayLayout
             windowManager.addView(overlayView, layoutParams)
 
@@ -127,6 +134,8 @@ class RecentAppsAccessibilityService : AccessibilityService() {
                 cancelPermission.visibility = View.GONE
                 lockUi.visibility = View.GONE
             }
+
+
         }
     }
 
@@ -234,5 +243,4 @@ class RecentAppsAccessibilityService : AccessibilityService() {
     }
 
 }
-
 

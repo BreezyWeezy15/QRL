@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 
@@ -23,6 +24,7 @@ class LockScreenActivity : AppCompatActivity() {
     private lateinit var lockUi: LinearLayout
     private lateinit var askPermissionBtn: Button
     private var correctPinCode: String? = null
+    private lateinit var firebaseDatabase: DatabaseReference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,12 +34,45 @@ class LockScreenActivity : AppCompatActivity() {
 
         lockUi = findViewById(R.id.lockUi)
         askPermissionBtn = findViewById(R.id.askPermission)
+
+        firebaseDatabase = FirebaseDatabase.getInstance().reference
+
+        fetchProfileTypeAndUpdateLockUi()
+
         askPermissionBtn.setOnClickListener {
             if (lockUi.visibility == View.GONE) {
                 lockUi.visibility = View.VISIBLE
                 showPassCodeUi()
             }
         }
+    }
+
+    private fun fetchProfileTypeAndUpdateLockUi() {
+        val appsListRef = firebaseDatabase.child("childApp")
+
+        appsListRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(dataSnapshot: DataSnapshot) {
+                var profileType = "" // Default value
+
+
+                for (childSnapshot in dataSnapshot.children) {
+                    val type = childSnapshot.child("profile_type").getValue(String::class.java) ?: "Child"
+                    profileType = type
+                    break
+                }
+
+
+                if (profileType in listOf("Child", "Teen", "Pre-K")) {
+                    askPermissionBtn.visibility = View.GONE
+                } else {
+                    askPermissionBtn.visibility = View.VISIBLE
+                }
+            }
+
+            override fun onCancelled(databaseError: DatabaseError) {
+                Toast.makeText(this@LockScreenActivity, "Failed to fetch profile type", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -63,8 +98,9 @@ class LockScreenActivity : AppCompatActivity() {
 
             if (enteredPasscode == correctPinCode) {
                 edit.text.clear()
+
                 removePackageFromFirebase(intent.getStringExtra("PACKAGE_NAME") ?: "")
-                finishAffinity()
+                finishAffinity()  // Close all activities
             } else {
                 Toast.makeText(this, "Passcode is incorrect", Toast.LENGTH_LONG).show()
             }
