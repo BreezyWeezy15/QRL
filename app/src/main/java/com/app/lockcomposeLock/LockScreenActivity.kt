@@ -6,18 +6,26 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.app.lockcomposeLock.models.LockedApp
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+
+import com.google.firebase.database.*
 
 class LockScreenActivity : AppCompatActivity() {
 
@@ -25,58 +33,50 @@ class LockScreenActivity : AppCompatActivity() {
     private lateinit var askPermissionBtn: Button
     private var correctPinCode: String? = null
     private lateinit var firebaseDatabase: DatabaseReference
+    private var excludedApps: List<LockedApp> = listOf()
+    private lateinit var lockedAppsRecyclerView: RecyclerView
+    private lateinit var lockedAppsAdapter: LockedAppsAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_lock_screen)
 
-        correctPinCode = intent.getStringExtra("PIN_CODE")
-
         lockUi = findViewById(R.id.lockUi)
         askPermissionBtn = findViewById(R.id.askPermission)
+        lockedAppsRecyclerView = findViewById(R.id.recyclerView)
 
-        firebaseDatabase = FirebaseDatabase.getInstance().reference
 
-        fetchProfileTypeAndUpdateLockUi()
+        correctPinCode = intent.getStringExtra("PIN_CODE")
+        excludedApps = intent.getParcelableArrayListExtra("LOCKED_APPS") ?: mutableListOf()
 
-        askPermissionBtn.setOnClickListener {
-            if (lockUi.visibility == View.GONE) {
-                lockUi.visibility = View.VISIBLE
-                showPassCodeUi()
-            }
+
+        lockedAppsAdapter = LockedAppsAdapter(excludedApps)
+        lockedAppsRecyclerView.layoutManager = LinearLayoutManager(this)
+        lockedAppsRecyclerView.adapter = lockedAppsAdapter
+
+
+        if (excludedApps.isNotEmpty()) {
+            Toast.makeText(this,"Size is " + excludedApps.size,Toast.LENGTH_LONG).show()
+            showExcludedAppsUI()
+        } else {
+            // Show PIN input UI
+            showPassCodeUi()
         }
     }
 
-    private fun fetchProfileTypeAndUpdateLockUi() {
-        val appsListRef = firebaseDatabase.child("childApp")
-
-        appsListRef.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(dataSnapshot: DataSnapshot) {
-                var profileType = "" // Default value
-
-
-                for (childSnapshot in dataSnapshot.children) {
-                    val type = childSnapshot.child("profile_type").getValue(String::class.java) ?: "Child"
-                    profileType = type
-                    break
-                }
-
-
-                if (profileType in listOf("Child", "Teen", "Pre-K")) {
-                    askPermissionBtn.visibility = View.GONE
-                } else {
-                    askPermissionBtn.visibility = View.VISIBLE
-                }
-            }
-
-            override fun onCancelled(databaseError: DatabaseError) {
-                Toast.makeText(this@LockScreenActivity, "Failed to fetch profile type", Toast.LENGTH_SHORT).show()
-            }
-        })
+    private fun showExcludedAppsUI() {
+        lockedAppsRecyclerView.visibility = View.VISIBLE
+        lockUi.visibility = View.GONE
+        askPermissionBtn.visibility = View.GONE
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun showPassCodeUi() {
+        lockUi.visibility = View.VISIBLE
+        lockedAppsRecyclerView.visibility = View.GONE
+        askPermissionBtn.visibility = View.GONE
+
+        // Set up buttons for the passcode UI
         val btn0 = findViewById<TextView>(R.id.btn0)
         val btn1 = findViewById<TextView>(R.id.btn1)
         val btn2 = findViewById<TextView>(R.id.btn2)
@@ -95,12 +95,10 @@ class LockScreenActivity : AppCompatActivity() {
 
         tick.setOnClickListener {
             val enteredPasscode = passcodeBuilder.toString()
-
             if (enteredPasscode == correctPinCode) {
                 edit.text.clear()
-
                 removePackageFromFirebase(intent.getStringExtra("PACKAGE_NAME") ?: "")
-                finishAffinity()  // Close all activities
+                finishAffinity()
             } else {
                 Toast.makeText(this, "Passcode is incorrect", Toast.LENGTH_LONG).show()
             }
@@ -137,7 +135,6 @@ class LockScreenActivity : AppCompatActivity() {
 
     private fun removePackageFromFirebase(packageName: String) {
         val firebaseDatabase = FirebaseDatabase.getInstance().reference
-
         fun removeFromNode(nodeName: String) {
             val nodeReference = firebaseDatabase.child(nodeName)
             val query = nodeReference.orderByChild("package_name").equalTo(packageName)
@@ -155,9 +152,7 @@ class LockScreenActivity : AppCompatActivity() {
                 }
             })
         }
-
         removeFromNode("childApp")
         removeFromNode("Apps")
     }
-
 }

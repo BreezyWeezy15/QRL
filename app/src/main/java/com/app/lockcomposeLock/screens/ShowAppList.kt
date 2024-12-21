@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,8 +36,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,9 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.app.lockcomposeLock.services.AppLockService
-import com.google.android.gms.tasks.Task
 import com.google.android.play.core.appupdate.AppUpdateInfo
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.install.model.UpdateAvailability
@@ -61,6 +56,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -69,7 +65,6 @@ fun ShowAppList() {
     val context = LocalContext.current.applicationContext as Application
     val selectedApps = remember { mutableStateListOf<InstalledApps>() }
     val isLoading = remember { mutableStateOf(true) }
-    val profileType = remember { mutableStateOf("Child") }  // Default value
 
     LaunchedEffect(Unit) {
         val serviceIntent = Intent(context, AppLockService::class.java)
@@ -80,7 +75,6 @@ fun ShowAppList() {
         fetchAppsFromFirebase { apps, type ->
             selectedApps.clear()
             selectedApps.addAll(apps)
-            profileType.value = type  // Set profile type
             isLoading.value = false
         }
     }
@@ -89,7 +83,7 @@ fun ShowAppList() {
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = profileType.value, color = Color.Black)  // Set title dynamically
+                    Text(text = "Lock Apps", color = Color.Black)
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.LightGray
@@ -138,7 +132,6 @@ fun AppListItem(app: InstalledApps) {
         elevation = CardDefaults.cardElevation(4.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
-        // (No changes inside the UI layout)
         Column(
             modifier = Modifier
                 .padding(16.dp)
@@ -167,13 +160,13 @@ fun AppListItem(app: InstalledApps) {
     }
 }
 
+
 fun checkForAppUpdate(context: Context) {
     val appUpdateManager = AppUpdateManagerFactory.create(context)
     val appUpdateInfoTask: com.google.android.play.core.tasks.Task<AppUpdateInfo> = appUpdateManager.appUpdateInfo
 
     appUpdateInfoTask.addOnSuccessListener { appUpdateInfo ->
         if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE) {
-            // Notify user or trigger update flow
             Toast.makeText(context, "Update available for Chrome!", Toast.LENGTH_LONG).show()
         } else {
             Toast.makeText(context, "Chrome is up-to-date.", Toast.LENGTH_LONG).show()
@@ -191,7 +184,6 @@ private fun fetchAppsFromFirebase(onAppsFetched: (List<InstalledApps>, String) -
     appsListRef.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(dataSnapshot: DataSnapshot) {
             val updatedList = mutableListOf<InstalledApps>()
-            var profileType = "Child"  // Default value
 
             for (childSnapshot in dataSnapshot.children) {
                 val packageName = childSnapshot.child("package_name").getValue(String::class.java) ?: ""
@@ -201,21 +193,21 @@ private fun fetchAppsFromFirebase(onAppsFetched: (List<InstalledApps>, String) -
                 val interval = childSnapshot.child("interval").getValue(String::class.java) ?: ""
                 val pinCode = childSnapshot.child("pin_code").getValue(String::class.java) ?: ""
 
-                profileType = type
+                if (type == "custom") {
+                    val iconBitmap = base64ToBitmap(base64Icon)
 
-                val iconBitmap = base64ToBitmap(base64Icon)
-
-                val installedApp = InstalledApps(
-                    packageName = packageName,
-                    name = name,
-                    icon = iconBitmap,
-                    interval = interval,
-                    pinCode = pinCode,
-                    profileType = type
-                )
-                updatedList.add(installedApp)
+                    val installedApp = InstalledApps(
+                        packageName = packageName,
+                        name = name,
+                        icon = iconBitmap,
+                        interval = interval,
+                        pinCode = pinCode,
+                        profileType = type
+                    )
+                    updatedList.add(installedApp)
+                }
             }
-            onAppsFetched(updatedList, profileType)  // Pass both the apps and profile type
+            onAppsFetched(updatedList, "Custom")
         }
 
         override fun onCancelled(databaseError: DatabaseError) {

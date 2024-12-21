@@ -18,11 +18,11 @@ object AppLockHelper {
         fetchLockedPackages()
     }
 
-    // Fetch locked apps and their pin codes from Firebase
+
     private fun fetchLockedPackages() {
         database.child("lockedApps").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
-                lockedApps.clear() // Clear previous data
+                lockedApps.clear()
 
                 for (childSnapshot in dataSnapshot.children) {
                     val packageName = childSnapshot.child("package_name").getValue(String::class.java) ?: ""

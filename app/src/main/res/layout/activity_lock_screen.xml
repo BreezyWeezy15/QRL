@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/ig">
 
-
+    <!-- Existing LinearLayout with Buttons -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -18,7 +18,7 @@
             android:text="Parent Permission"
             android:gravity="center"
             android:layout_marginBottom="10dp"
-            android:layout_gravity="center"/>
+            android:layout_gravity="center" />
 
         <Button
             android:id="@+id/cancelPermission"
@@ -28,10 +28,11 @@
             android:visibility="gone"
             android:gravity="center"
             android:layout_marginBottom="20dp"
-            android:layout_gravity="center"/>
+            android:layout_gravity="center" />
 
     </LinearLayout>
 
+    <!-- Lock UI Layout -->
     <LinearLayout
         android:id="@+id/lockUi"
         xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -43,7 +44,7 @@
         android:gravity="bottom"
         android:padding="16dp">
 
-
+        <!-- TextView -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -52,8 +53,9 @@
             android:layout_gravity="center"
             android:gravity="center"
             android:fontFamily="sans-serif-condensed-medium"
-            android:textColor="@color/white"/>
+            android:textColor="@color/white" />
 
+        <!-- EditText -->
         <EditText
             android:id="@+id/passCodeEdit"
             android:layout_width="match_parent"
@@ -68,9 +70,9 @@
             android:drawableEnd="@drawable/backspace"
             android:layout_marginStart="30dp"
             android:layout_marginEnd="30dp"
-            android:layout_marginTop="10dp"/>
+            android:layout_marginTop="10dp" />
 
-
+        <!-- Keypad Layout -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -244,7 +246,18 @@
 
         </LinearLayout>
 
-
     </LinearLayout>
+
+    <!-- RecyclerView added -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="bottom"
+        android:layout_marginTop="16dp"
+        android:padding="16dp"
+        android:visibility="visible"
+        android:clipToPadding="false"
+        android:scrollbars="vertical" />
 
 </FrameLayout>

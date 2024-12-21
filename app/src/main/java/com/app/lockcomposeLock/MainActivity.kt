@@ -99,7 +99,9 @@ class MainActivity : ComponentActivity() {
             return hasUsageStatsPermission.value && hasOverlayPermission.value && hasNotificationPermission.value && isAccessibilityServiceEnabled.value
         }
 
-        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)) {
             PermissionRow(
                 label = "Overlay Permission",
                 isGranted = hasOverlayPermission.value,
@@ -131,7 +133,7 @@ class MainActivity : ComponentActivity() {
                 label = "Accessibility Permission",
                 isGranted = isAccessibilityServiceEnabled.value,
                 onClick = {
-                    if (!isAccessibilityServiceEnabled.value) { // Only prompt if the service is not already enabled
+                    if (!isAccessibilityServiceEnabled.value) {
                         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                         requestAccessibilityPermissionLauncher.launch(intent)
                     }
@@ -155,7 +157,13 @@ class MainActivity : ComponentActivity() {
                             if (hasAllPermissions()) {
                                 navController.navigate("showAppList")
                             } else {
-                                Toast.makeText(context, "Please grant all permissions.", Toast.LENGTH_SHORT).show()
+                                Toast
+                                    .makeText(
+                                        context,
+                                        "Please grant all permissions.",
+                                        Toast.LENGTH_SHORT
+                                    )
+                                    .show()
                             }
                         }
                         .size(48.dp)

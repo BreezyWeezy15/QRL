@@ -9,22 +9,23 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.app.lockcomposeLock.LockScreenActivity
-
 import com.app.lockcomposeLock.MainActivity
 import com.app.lockcomposeLock.R
+import com.app.lockcomposeLock.models.LockedApp
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-
 
 class AppLockService : Service() {
     companion object {
@@ -34,10 +35,13 @@ class AppLockService : Service() {
         private const val PIN_CODE_KEY = "pin_code"
     }
 
+
+    private lateinit var customList : MutableList<String>
     private lateinit var sharedPreferences: SharedPreferences
     private val handler = Handler(Looper.getMainLooper())
-    private val lockedApps = mutableSetOf<String>()
+    private val lockedApps = mutableListOf<LockedApp>()
     private val appPinCodes = mutableMapOf<String, String>()
+    private var currentProfile = ""
     private lateinit var database: DatabaseReference
 
     private val runnable = object : Runnable {
@@ -51,20 +55,20 @@ class AppLockService : Service() {
         super.onCreate()
         sharedPreferences = getSharedPreferences("AppLockPrefs", Context.MODE_PRIVATE)
         createNotificationChannel()
+        customList = mutableListOf()
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
-
         database = FirebaseDatabase.getInstance().reference
         fetchLockedPackages()
-
         handler.post(runnable)
     }
-
 
     private fun fetchLockedPackages() {
         database.child("childApp").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
-                updateLockedApps(dataSnapshot)
+                if (dataSnapshot.exists()) {
+                    updateLockedApps(dataSnapshot)
+                }
             }
 
             override fun onCancelled(databaseError: DatabaseError) {
@@ -77,16 +81,33 @@ class AppLockService : Service() {
         appPinCodes.clear()
         lockedApps.clear()
 
+
+        lockedApps.clear()
         for (childSnapshot in dataSnapshot.children) {
             val packageName = childSnapshot.child(PACKAGE_NAME_KEY).getValue(String::class.java) ?: ""
             val pinCode = childSnapshot.child(PIN_CODE_KEY).getValue(String::class.java) ?: ""
+            val name = childSnapshot.child("name").getValue(String::class.java) ?: ""
+            val icon = childSnapshot.child("icon").getValue(String::class.java) ?: ""
+            val profileName = childSnapshot.child("profile_type").getValue(String::class.java) ?: ""
+            currentProfile = profileName
 
-            if (packageName.isNotEmpty() && pinCode.isNotEmpty()) {
-                appPinCodes[packageName] = pinCode
-                lockedApps.add(packageName)
+
+            if (profileName in listOf("Child", "Teen", "Pre-k") && packageName.isNotEmpty()) {
+                lockedApps.add(LockedApp(name,packageName,icon))
+            } else {
+                if (pinCode.isNotEmpty() && pinCode != "0") {
+                    appPinCodes[packageName] = pinCode
+                    customList.add(packageName)
+                }
             }
         }
-        Log.d("AppLockService", "Updated locked apps: $lockedApps")
+    }
+    private fun navigateToLockScreen() {
+        val lockIntent = Intent(this, LockScreenActivity::class.java).apply {
+            putParcelableArrayListExtra("LOCKED_APPS", ArrayList(lockedApps))
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        startActivity(lockIntent)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -110,20 +131,21 @@ class AppLockService : Service() {
         if (stats.isNotEmpty()) {
             val sortedStats = stats.sortedByDescending { it.lastTimeUsed }
             val currentApp = sortedStats.firstOrNull()?.packageName
-            Log.d("AppLockService", "Current top app: $currentApp")
 
-            if (currentApp != null && shouldLockApp(currentApp)) {
-                showLockScreen(currentApp)
+            if (currentApp != null && currentApp != packageName) {
+                if (appPinCodes.isNotEmpty() && appPinCodes.containsKey(currentApp)) {
+                    showLockScreen(currentApp)
+                }
             }
-        } else {
-            Log.d("AppLockService", "No usage stats available.")
+
+            if (appPinCodes.isEmpty() && currentApp != packageName){
+                val isLockedApp = lockedApps.any { it.packageName.trim().lowercase() == currentApp!!.trim().lowercase() }
+                if (!isLockedApp){
+                    navigateToLockScreen()
+                }
+            }
         }
     }
-
-    private fun shouldLockApp(packageName: String): Boolean {
-        return lockedApps.contains(packageName)
-    }
-
 
     private fun showLockScreen(packageName: String) {
         val lockIntent = Intent(this, LockScreenActivity::class.java).apply {
@@ -133,7 +155,6 @@ class AppLockService : Service() {
         }
         startActivity(lockIntent)
     }
-
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -159,3 +180,4 @@ class AppLockService : Service() {
             .build()
     }
 }
+
