@@ -56,10 +56,8 @@ class LockScreenActivity : AppCompatActivity() {
 
 
         if (excludedApps.isNotEmpty()) {
-            Toast.makeText(this,"Size is " + excludedApps.size,Toast.LENGTH_LONG).show()
             showExcludedAppsUI()
         } else {
-            // Show PIN input UI
             showPassCodeUi()
         }
     }

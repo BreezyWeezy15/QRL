@@ -35,8 +35,6 @@ class AppLockService : Service() {
         private const val PIN_CODE_KEY = "pin_code"
     }
 
-
-    private lateinit var customList : MutableList<String>
     private lateinit var sharedPreferences: SharedPreferences
     private val handler = Handler(Looper.getMainLooper())
     private val lockedApps = mutableListOf<LockedApp>()
@@ -55,7 +53,6 @@ class AppLockService : Service() {
         super.onCreate()
         sharedPreferences = getSharedPreferences("AppLockPrefs", Context.MODE_PRIVATE)
         createNotificationChannel()
-        customList = mutableListOf()
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification)
         database = FirebaseDatabase.getInstance().reference
@@ -97,7 +94,6 @@ class AppLockService : Service() {
             } else {
                 if (pinCode.isNotEmpty() && pinCode != "0") {
                     appPinCodes[packageName] = pinCode
-                    customList.add(packageName)
                 }
             }
         }
@@ -132,19 +128,23 @@ class AppLockService : Service() {
             val sortedStats = stats.sortedByDescending { it.lastTimeUsed }
             val currentApp = sortedStats.firstOrNull()?.packageName
 
-            if (currentApp != null && currentApp != packageName) {
+            // Define the excluded packages
+            val excludedPackages = listOf("com.app.lockcomposeLock", "com.app.lockcomposeChild")
+
+            if (currentApp != null  && currentApp !in excludedPackages) {
                 if (appPinCodes.isNotEmpty() && appPinCodes.containsKey(currentApp)) {
                     showLockScreen(currentApp)
                 }
-            }
 
-            if (appPinCodes.isEmpty() && currentApp != packageName){
-                val isLockedApp = lockedApps.any { it.packageName.trim().lowercase() == currentApp!!.trim().lowercase() }
-                if (!isLockedApp){
-                    navigateToLockScreen()
+                if (appPinCodes.isEmpty()) {
+                    val isLockedApp = lockedApps.any { it.packageName.trim().lowercase() == currentApp.trim().lowercase() }
+                    if (!isLockedApp) {
+                        navigateToLockScreen()
+                    }
                 }
             }
         }
+
     }
 
     private fun showLockScreen(packageName: String) {
