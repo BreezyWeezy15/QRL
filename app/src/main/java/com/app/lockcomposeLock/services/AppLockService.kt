@@ -89,8 +89,8 @@ class AppLockService : Service() {
             currentProfile = profileName
 
 
-            if (profileName in listOf("Child", "Teen", "Pre-k") && packageName.isNotEmpty()) {
-                lockedApps.add(LockedApp(name,packageName,icon))
+            if (profileName in listOf("Child", "Teen", "Pre-K") && packageName.isNotEmpty()) {
+                lockedApps.add(LockedApp(name,packageName,icon,profileName))
             } else {
                 if (pinCode.isNotEmpty() && pinCode != "0") {
                     appPinCodes[packageName] = pinCode
@@ -128,7 +128,7 @@ class AppLockService : Service() {
             val sortedStats = stats.sortedByDescending { it.lastTimeUsed }
             val currentApp = sortedStats.firstOrNull()?.packageName
 
-            // Define the excluded packages
+
             val excludedPackages = listOf("com.app.lockcomposeLock", "com.app.lockcomposeChild")
 
             if (currentApp != null  && currentApp !in excludedPackages) {
@@ -136,7 +136,7 @@ class AppLockService : Service() {
                     showLockScreen(currentApp)
                 }
 
-                if (appPinCodes.isEmpty()) {
+                if (appPinCodes.isEmpty()  && currentApp !in excludedPackages) {
                     val isLockedApp = lockedApps.any { it.packageName.trim().lowercase() == currentApp.trim().lowercase() }
                     if (!isLockedApp) {
                         navigateToLockScreen()

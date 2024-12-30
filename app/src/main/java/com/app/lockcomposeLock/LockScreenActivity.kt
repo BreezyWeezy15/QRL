@@ -16,6 +16,7 @@ import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.app.lockcomposeLock.models.LockedApp
@@ -34,44 +35,60 @@ class LockScreenActivity : AppCompatActivity() {
     private var correctPinCode: String? = null
     private lateinit var firebaseDatabase: DatabaseReference
     private var excludedApps: List<LockedApp> = listOf()
-    private lateinit var lockedAppsRecyclerView: RecyclerView
     private lateinit var lockedAppsAdapter: LockedAppsAdapter
+
+    // Add image variables
+    private lateinit var bgImage : ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_lock_screen)
-
-        lockUi = findViewById(R.id.lockUi)
-        askPermissionBtn = findViewById(R.id.askPermission)
-        lockedAppsRecyclerView = findViewById(R.id.recyclerView)
 
 
         correctPinCode = intent.getStringExtra("PIN_CODE")
         excludedApps = intent.getParcelableArrayListExtra("LOCKED_APPS") ?: mutableListOf()
 
 
-        lockedAppsAdapter = LockedAppsAdapter(excludedApps)
-        lockedAppsRecyclerView.layoutManager = LinearLayoutManager(this)
-        lockedAppsRecyclerView.adapter = lockedAppsAdapter
-
-
-        if (excludedApps.isNotEmpty()) {
-            showExcludedAppsUI()
-        } else {
+        if (excludedApps.isEmpty()){
+            setContentView(R.layout.activity_lock_screen)
+            lockUi = findViewById(R.id.lockUi)
+            askPermissionBtn = findViewById(R.id.askPermission)
+            bgImage = findViewById(R.id.backgroundImageView)
             showPassCodeUi()
+        } else {
+            setContentView(R.layout.profile_layout)
+            showProfileLayout()
         }
+
+
     }
 
-    private fun showExcludedAppsUI() {
-        lockedAppsRecyclerView.visibility = View.VISIBLE
-        lockUi.visibility = View.GONE
-        askPermissionBtn.visibility = View.GONE
+
+    private fun showProfileLayout() {
+
+        val bgImg = findViewById<ImageView>(R.id.bgImg)
+        val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
+        lockedAppsAdapter = LockedAppsAdapter(excludedApps)
+        recyclerView.layoutManager = GridLayoutManager(this,excludedApps.size)
+        recyclerView.adapter = lockedAppsAdapter
+
+        when (excludedApps[0].profile) {
+            "Child" -> {
+                bgImg.setImageResource(R.drawable.image1)
+            }
+            "Teen" -> {
+                bgImg.setImageResource(R.drawable.image2)
+            }
+            "Pre-K" -> {
+                bgImg.setImageResource(R.drawable.image3)
+            }
+        }
+
+
     }
 
-    @SuppressLint("ClickableViewAccessibility")
+
     private fun showPassCodeUi() {
         lockUi.visibility = View.VISIBLE
-        lockedAppsRecyclerView.visibility = View.GONE
         askPermissionBtn.visibility = View.GONE
 
         // Set up buttons for the passcode UI
@@ -154,3 +171,4 @@ class LockScreenActivity : AppCompatActivity() {
         removeFromNode("Apps")
     }
 }
+

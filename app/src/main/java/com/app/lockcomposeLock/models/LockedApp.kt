@@ -6,9 +6,11 @@ import android.os.Parcelable
 data class LockedApp(
     val appName: String,
     val packageName: String,
-    val appIcon: String
+    val appIcon: String,
+    val profile : String
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
+        parcel.readString().toString(),
         parcel.readString().toString(),
         parcel.readString().toString(),
         parcel.readString().toString()
@@ -19,6 +21,7 @@ data class LockedApp(
         parcel.writeString(appName)
         parcel.writeString(packageName)
         parcel.writeString(appIcon)
+        parcel.writeString(profile)
     }
 
     override fun describeContents(): Int {
@@ -34,5 +37,6 @@ data class LockedApp(
             return arrayOfNulls(size)
         }
     }
+
 
 }
