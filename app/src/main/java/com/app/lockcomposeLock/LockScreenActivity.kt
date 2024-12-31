@@ -52,14 +52,13 @@ class LockScreenActivity : AppCompatActivity() {
         windowParams = WindowManager.LayoutParams()
         windowParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         windowParams.format = PixelFormat.TRANSLUCENT
-        windowParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+        windowParams.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
                 WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         windowParams.width = WindowManager.LayoutParams.MATCH_PARENT
         windowParams.height = WindowManager.LayoutParams.MATCH_PARENT
 
-       // windowManager.addView(overlayView, windowParams)
 
         if (excludedApps.isEmpty()) {
             setContentView(R.layout.widget_layout)
