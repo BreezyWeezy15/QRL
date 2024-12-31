@@ -22,7 +22,6 @@ import com.google.firebase.database.*
 
 class LockScreenActivity : AppCompatActivity() {
 
-    private lateinit var closeIcon: ImageView
     private lateinit var lockUi: LinearLayout
     private lateinit var askPermissionBtn: Button
     private var correctPinCode: String? = null
@@ -41,7 +40,7 @@ class LockScreenActivity : AppCompatActivity() {
         excludedApps = intent.getParcelableArrayListExtra("LOCKED_APPS") ?: mutableListOf()
 
         setOverlayLayout()
-        
+
     }
 
     private fun setOverlayLayout() {
@@ -108,6 +107,7 @@ class LockScreenActivity : AppCompatActivity() {
         lockedAppsAdapter.notifyDataSetChanged()
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun showPassCodeUi() {
         lockUi.visibility = View.VISIBLE
         askPermissionBtn.visibility = View.GONE
