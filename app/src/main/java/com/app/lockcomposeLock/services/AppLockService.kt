@@ -131,18 +131,26 @@ class AppLockService : Service() {
 
             val excludedPackages = listOf("com.app.lockcomposeLock", "com.app.lockcomposeChild")
 
-            if (currentApp != null  && currentApp !in excludedPackages) {
+            if (currentApp != null && currentApp !in excludedPackages) {
+                // Check if the current app is the settings package
+                if (currentApp == "com.android.settings") {
+                    navigateToLockScreen()
+                }
+
+                // Check if there are app pin codes and the current app is one of them
                 if (appPinCodes.isNotEmpty() && appPinCodes.containsKey(currentApp)) {
                     showLockScreen(currentApp)
                 }
 
-                if (appPinCodes.isEmpty()  && currentApp !in excludedPackages) {
+                // Handle the case where there are no app pin codes
+                if (appPinCodes.isEmpty() && currentApp !in excludedPackages) {
                     val isLockedApp = lockedApps.any { it.packageName.trim().lowercase() == currentApp.trim().lowercase() }
                     if (!isLockedApp) {
                         navigateToLockScreen()
                     }
                 }
             }
+
         }
 
     }

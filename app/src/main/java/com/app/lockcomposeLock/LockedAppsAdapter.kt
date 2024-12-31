@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -24,6 +25,8 @@ class LockedAppsAdapter(private val lockedApps: List<LockedApp>) : RecyclerView.
         val lockedApp = lockedApps[position]
 
         holder.appNameTextView.text = lockedApp.appName
+
+        Log.d("TAGZ","VALUE " + lockedApp.appName)
 
         val decodedByteArray: ByteArray = Base64.decode(lockedApp.appIcon, Base64.DEFAULT)
         val decodedBitmap: Bitmap = BitmapFactory.decodeByteArray(decodedByteArray, 0, decodedByteArray.size)

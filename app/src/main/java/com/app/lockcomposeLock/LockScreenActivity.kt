@@ -1,97 +1,124 @@
 package com.app.lockcomposeLock
 
-
-
 import android.annotation.SuppressLint
-import android.content.Intent
+import android.content.Context
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
-import android.graphics.drawable.Drawable
+import android.graphics.PixelFormat
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.app.lockcomposeLock.models.LockedApp
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
-
 import com.google.firebase.database.*
 
 class LockScreenActivity : AppCompatActivity() {
 
+    private lateinit var closeIcon: ImageView
     private lateinit var lockUi: LinearLayout
     private lateinit var askPermissionBtn: Button
     private var correctPinCode: String? = null
-    private lateinit var firebaseDatabase: DatabaseReference
     private var excludedApps: List<LockedApp> = listOf()
     private lateinit var lockedAppsAdapter: LockedAppsAdapter
-
-    // Add image variables
-    private lateinit var bgImage : ImageView
+    private lateinit var bgImage: ImageView
+    private lateinit var windowManager: WindowManager
+    private lateinit var windowParams: WindowManager.LayoutParams
+    private lateinit var overlayView: View
+    private lateinit var closeLayoutIcon: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-
         correctPinCode = intent.getStringExtra("PIN_CODE")
         excludedApps = intent.getParcelableArrayListExtra("LOCKED_APPS") ?: mutableListOf()
+        
+        setOverlayLayout()
 
+        closeIcon.setOnClickListener {
+            dismissOverlay()
+        }
 
-        if (excludedApps.isEmpty()){
-            setContentView(R.layout.activity_lock_screen)
+        closeLayoutIcon.setOnClickListener {
+            dismissOverlay()
+        }
+    }
+
+    private fun setOverlayLayout() {
+        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        overlayView = LayoutInflater.from(this).inflate(
+            if (excludedApps.isEmpty()) R.layout.widget_layout else R.layout.profile_layout, null
+        )
+
+        windowParams = WindowManager.LayoutParams()
+        windowParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        windowParams.format = PixelFormat.TRANSLUCENT
+        windowParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        windowParams.width = WindowManager.LayoutParams.MATCH_PARENT
+        windowParams.height = WindowManager.LayoutParams.MATCH_PARENT
+
+       // windowManager.addView(overlayView, windowParams)
+
+        if (excludedApps.isEmpty()) {
+            setContentView(R.layout.widget_layout)
             lockUi = findViewById(R.id.lockUi)
             askPermissionBtn = findViewById(R.id.askPermission)
-            bgImage = findViewById(R.id.backgroundImageView)
             showPassCodeUi()
         } else {
             setContentView(R.layout.profile_layout)
+            bgImage = findViewById(R.id.bgImg)
             showProfileLayout()
         }
-
-
     }
 
+    private fun dismissOverlay() {
+        try {
+            removeOverlay()
+            finishAffinity()
+        } catch (e: Exception) {
+            Log.e("Overlay", "Error dismissing overlay: ${e.message}")
+        }
+    }
+
+    private fun removeOverlay() {
+        try {
+            windowManager.removeView(overlayView)
+        } catch (e: Exception) {
+            Log.e("WindowManager", "Error removing overlay: ${e.message}")
+        }
+    }
 
     private fun showProfileLayout() {
-
-        val bgImg = findViewById<ImageView>(R.id.bgImg)
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
-        lockedAppsAdapter = LockedAppsAdapter(excludedApps)
-        recyclerView.layoutManager = GridLayoutManager(this,excludedApps.size)
-        recyclerView.adapter = lockedAppsAdapter
+        val bgImg = findViewById<ImageView>(R.id.bgImg)
 
-        when (excludedApps[0].profile) {
-            "Child" -> {
-                bgImg.setImageResource(R.drawable.image1)
-            }
-            "Teen" -> {
-                bgImg.setImageResource(R.drawable.image2)
-            }
-            "Pre-K" -> {
-                bgImg.setImageResource(R.drawable.image3)
-            }
+        when (excludedApps.getOrNull(0)?.profile) {
+            "Child" -> bgImg.setImageResource(R.drawable.image1)
+            "Teen" -> bgImg.setImageResource(R.drawable.image2)
+            "Pre-K" -> bgImg.setImageResource(R.drawable.image3)
         }
 
+        lockedAppsAdapter = LockedAppsAdapter(excludedApps)
+        recyclerView.layoutManager = GridLayoutManager(this, 3)
+        recyclerView.adapter = lockedAppsAdapter
 
+        lockedAppsAdapter.notifyDataSetChanged()
     }
-
 
     private fun showPassCodeUi() {
         lockUi.visibility = View.VISIBLE
         askPermissionBtn.visibility = View.GONE
 
-        // Set up buttons for the passcode UI
         val btn0 = findViewById<TextView>(R.id.btn0)
         val btn1 = findViewById<TextView>(R.id.btn1)
         val btn2 = findViewById<TextView>(R.id.btn2)
@@ -113,7 +140,7 @@ class LockScreenActivity : AppCompatActivity() {
             if (enteredPasscode == correctPinCode) {
                 edit.text.clear()
                 removePackageFromFirebase(intent.getStringExtra("PACKAGE_NAME") ?: "")
-                finishAffinity()
+                dismissOverlay()
             } else {
                 Toast.makeText(this, "Passcode is incorrect", Toast.LENGTH_LONG).show()
             }
@@ -127,7 +154,7 @@ class LockScreenActivity : AppCompatActivity() {
         }
 
         addRemoveIcon(edit)
-        edit.setOnTouchListener { v, event ->
+        edit.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
                 val drawableEnd = edit.compoundDrawablesRelative[2]
                 if (drawableEnd != null && event.rawX >= edit.right - drawableEnd.bounds.width()) {
@@ -171,4 +198,3 @@ class LockScreenActivity : AppCompatActivity() {
         removeFromNode("Apps")
     }
 }
-

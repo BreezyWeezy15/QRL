@@ -6,6 +6,9 @@
     android:orientation="vertical">
 
 
+
+
+
     <ImageView
         android:id="@+id/bgImg"
         android:layout_width="match_parent"
@@ -72,14 +75,13 @@
                     android:text="00:29" />
 
             </androidx.cardview.widget.CardView>
+
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_gravity="bottom"
-            android:layout_marginTop="16dp"
             android:padding="16dp"
             android:visibility="visible"
             android:clipToPadding="false"
