@@ -39,16 +39,9 @@ class LockScreenActivity : AppCompatActivity() {
 
         correctPinCode = intent.getStringExtra("PIN_CODE")
         excludedApps = intent.getParcelableArrayListExtra("LOCKED_APPS") ?: mutableListOf()
-        
+
         setOverlayLayout()
-
-        closeIcon.setOnClickListener {
-            dismissOverlay()
-        }
-
-        closeLayoutIcon.setOnClickListener {
-            dismissOverlay()
-        }
+        
     }
 
     private fun setOverlayLayout() {
