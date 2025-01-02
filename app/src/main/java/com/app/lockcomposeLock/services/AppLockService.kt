@@ -188,4 +188,3 @@ class AppLockService : Service() {
             .build()
     }
 }
-

@@ -16,6 +16,14 @@ import com.app.lockcomposeLock.models.LockedApp
 
 class LockedAppsAdapter(private val lockedApps: List<LockedApp>) : RecyclerView.Adapter<LockedAppsAdapter.LockedAppViewHolder>() {
 
+    private lateinit var onPackageListener: OnPackageListener
+    public fun interface  OnPackageListener {
+        fun onPackageSelected(packages: String)
+    }
+    fun execute(onPackageListener: OnPackageListener){
+        this.onPackageListener = onPackageListener
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LockedAppViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.app_item, parent, false)
         return LockedAppViewHolder(view)
@@ -33,7 +41,7 @@ class LockedAppsAdapter(private val lockedApps: List<LockedApp>) : RecyclerView.
         holder.appIconImageView.setImageBitmap(decodedBitmap)
 
         holder.itemView.setOnClickListener {
-            openApp(holder.itemView.context,lockedApp.packageName)
+           onPackageListener.onPackageSelected(lockedApp.packageName)
         }
     }
 
@@ -41,17 +49,10 @@ class LockedAppsAdapter(private val lockedApps: List<LockedApp>) : RecyclerView.
         return lockedApps.size
     }
 
-    private fun openApp(context: Context,packageName: String) {
-        val intent = context.packageManager.getLaunchIntentForPackage(packageName)
-        if (intent != null) {
-            context.startActivity(intent)
-        } else {
-            Toast.makeText(context, "App not found", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     class LockedAppViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val appIconImageView: ImageView = itemView.findViewById(R.id.appIcon)
         val appNameTextView: TextView = itemView.findViewById(R.id.appName)
     }
+
+
 }
