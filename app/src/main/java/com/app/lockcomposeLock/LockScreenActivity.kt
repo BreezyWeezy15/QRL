@@ -97,7 +97,7 @@ class LockScreenActivity : AppCompatActivity() {
         val recyclerView = overlayView.findViewById<RecyclerView>(R.id.recyclerView)
         val bgImg = overlayView.findViewById<ImageView>(R.id.bgImg)
 
-        // Set background based on profile
+        // Set overlay background
         when (excludedApps.getOrNull(0)?.profile) {
             "Child" -> bgImg.setBackgroundResource(R.drawable.image1)
             "Teen" -> bgImg.setBackgroundResource(R.drawable.image2)
@@ -105,43 +105,55 @@ class LockScreenActivity : AppCompatActivity() {
         }
 
         // Configure RecyclerView
-        recyclerView.layoutManager = GridLayoutManager(this, excludedApps.size) // Adjust column count as needed
+        recyclerView.layoutManager = GridLayoutManager(this, excludedApps.size)
         lockedAppsAdapter = LockedAppsAdapter(excludedApps)
         recyclerView.adapter = lockedAppsAdapter
 
         lockedAppsAdapter.execute { packageName ->
             openApp(packageName)
-            //startBackgroundAppChecker(packageName)
+            monitorAppUsage(packageName)
         }
-
-
     }
 
     private fun openApp(packageName: String) {
+        // Remove overlay before opening the app
+        if (overlayView.isAttachedToWindow) {
+            windowManager.removeView(overlayView)
+        }
+
+        // Launch the app
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
-          //  startActivity(intent)
-           // windowManager.removeView(overlayView)
+            startActivity(intent)
+
+            // Delay to ensure the app opens fully before reattaching the overlay
+            Handler(Looper.getMainLooper()).postDelayed({
+                monitorAppUsage(packageName)
+            }, 1000) // Adjust delay as needed
         } else {
             Toast.makeText(this, "App not found", Toast.LENGTH_SHORT).show()
         }
     }
 
-//    private fun startBackgroundAppChecker(packageName: String) {
-//        handler = Handler(Looper.getMainLooper())
-//        runnable = object : Runnable {
-//            override fun run() {
-//                if(packageName != getForegroundApp()){
-//                    if(!overlayView.isAttachedToWindow){
-//                        windowManager.addView(overlayView, windowParams)
-//                    }
-//                    handler!!.removeCallbacksAndMessages(null)
-//                }
-//                handler?.postDelayed(this, 1000)
-//            }
-//        }
-//        handler?.post(runnable!!)
-//    }
+    private fun monitorAppUsage(packageName: String) {
+        handler = Handler(Looper.getMainLooper())
+        runnable = object : Runnable {
+            override fun run() {
+                val currentApp = getForegroundApp()
+                if (currentApp != packageName) {
+                    // Check if overlay is already attached
+                    if (!overlayView.isAttachedToWindow) {
+                        windowManager.addView(overlayView, windowParams)
+                    }
+                    handler?.removeCallbacks(this) // Stop monitoring after reattaching the overlay
+                } else {
+                    handler?.postDelayed(this, 1000) // Check again in 1 second
+                }
+            }
+        }
+        handler?.post(runnable!!)
+    }
+
 
     private fun getForegroundApp(): String? {
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -151,11 +163,7 @@ class LockScreenActivity : AppCompatActivity() {
             currentTime - 1000 * 60,
             currentTime
         )
-        if (!stats.isNullOrEmpty()) {
-            val recentApp = stats.maxByOrNull { it.lastTimeUsed }
-            return recentApp?.packageName
-        }
-        return null
+        return stats?.maxByOrNull { it.lastTimeUsed }?.packageName
     }
 
     override fun onDestroy() {
