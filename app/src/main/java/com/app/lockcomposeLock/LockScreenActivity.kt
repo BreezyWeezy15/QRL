@@ -1,8 +1,10 @@
 package com.app.lockcomposeLock
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.PixelFormat
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
@@ -21,11 +23,14 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.material3.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.app.lockcomposeLock.models.LockedApp
+import com.app.lockcomposeLock.services.AppLockService
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
@@ -34,158 +39,121 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class LockScreenActivity : AppCompatActivity() {
 
+    private var isFirstTime = true
     private var handler: Handler? = null
     private var runnable: Runnable? = null
-    private var overlayViewAdded = AtomicBoolean(true) // To track overlay stat
     private lateinit var lockUi: LinearLayout
-    private lateinit var askPermissionBtn: Button
-    private var correctPinCode: String? = null
+    private var correctPinCode: Int? = null
     private var excludedApps: List<LockedApp> = listOf()
     private lateinit var lockedAppsAdapter: LockedAppsAdapter
-    private lateinit var bgImage: ImageView
     private lateinit var windowManager: WindowManager
     private lateinit var windowParams: WindowManager.LayoutParams
     private lateinit var overlayView: View
-    private lateinit var closeLayoutIcon: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        correctPinCode = intent.getStringExtra("PIN_CODE")
+        correctPinCode = intent.getIntExtra("INTERVAL",0)
         excludedApps = intent.getParcelableArrayListExtra("LOCKED_APPS") ?: mutableListOf()
 
+        triggerDatabase()
         setOverlayLayout()
 
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun setOverlayLayout() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        // Inflate appropriate layout
         overlayView = LayoutInflater.from(this).inflate(
             if (excludedApps.isEmpty()) R.layout.widget_layout else R.layout.profile_layout, null
         )
 
-        // Configure window parameters
         windowParams = WindowManager.LayoutParams().apply {
-            type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                WindowManager.LayoutParams.TYPE_PHONE
+            }
             format = PixelFormat.TRANSLUCENT
-            flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             width = WindowManager.LayoutParams.MATCH_PARENT
             height = WindowManager.LayoutParams.MATCH_PARENT
         }
 
-        // Add the overlay view
-        windowManager.addView(overlayView, windowParams)
-
         if (excludedApps.isEmpty()) {
             setContentView(R.layout.widget_layout)
             lockUi = findViewById(R.id.lockUi)
-            askPermissionBtn = findViewById(R.id.askPermission)
-            showPassCodeUi()
+
+            val firebaseDatabase = FirebaseDatabase.getInstance().reference
+            firebaseDatabase
+                .child("Permissions")
+                .addValueEventListener(object  : ValueEventListener {
+                    override fun onDataChange(dataSnapShot: DataSnapshot) {
+                        if (dataSnapShot.exists()) {
+                            val data = dataSnapShot.child("answer").getValue(String::class.java)
+                            if (!data.isNullOrEmpty()) {
+                                if (data == "Yes") {
+                                    removeOverlayTemporarily(correctPinCode!!)
+                                } else {
+                                    addOverlayView()
+                                    showPassCodeUi()
+                                }
+                            } else {
+                                addOverlayView()
+                                showPassCodeUi()
+                            }
+                        }
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+
+                    }
+
+                })
         } else {
-            // Initialize and show profile layout
             setContentView(R.layout.profile_layout)
             setupProfileLayout()
         }
     }
 
-
-    private fun setupProfileLayout() {
-        val recyclerView = overlayView.findViewById<RecyclerView>(R.id.recyclerView)
-        val bgImg = overlayView.findViewById<ImageView>(R.id.bgImg)
-
-        // Set overlay background
-        when (excludedApps.getOrNull(0)?.profile) {
-            "Child" -> bgImg.setBackgroundResource(R.drawable.image1)
-            "Teen" -> bgImg.setBackgroundResource(R.drawable.image2)
-            "Pre-K" -> bgImg.setBackgroundResource(R.drawable.image3)
-        }
-
-        // Configure RecyclerView
-        recyclerView.layoutManager = GridLayoutManager(this, excludedApps.size)
-        lockedAppsAdapter = LockedAppsAdapter(excludedApps)
-        recyclerView.adapter = lockedAppsAdapter
-
-        lockedAppsAdapter.execute { packageName ->
-            openApp(packageName)
-            monitorAppUsage(packageName)
+    private fun addOverlayView() {
+        if (overlayView.parent == null) {
+            windowManager.addView(overlayView, windowParams)
         }
     }
 
-    private fun openApp(packageName: String) {
-        // Remove overlay before opening the app
-        if (overlayView.isAttachedToWindow) {
-            windowManager.removeView(overlayView)
-        }
+    private fun removeOverlayTemporarily(interval : Int) {
+        windowManager.removeView(overlayView)
 
-        // Launch the app
-        val intent = packageManager.getLaunchIntentForPackage(packageName)
-        if (intent != null) {
-            startActivity(intent)
-
-            // Delay to ensure the app opens fully before reattaching the overlay
-            Handler(Looper.getMainLooper()).postDelayed({
-                monitorAppUsage(packageName)
-            }, 1000) // Adjust delay as needed
-        } else {
-            Toast.makeText(this, "App not found", Toast.LENGTH_SHORT).show()
-        }
+        Handler(Looper.getMainLooper()).postDelayed({
+            Toast.makeText(this,"Triggered",Toast.LENGTH_SHORT).show()
+            updatePermission()
+            addOverlayView()
+        }, (interval * 60 * 1000).toLong()) // 5 minutes in milliseconds
     }
 
-    private fun monitorAppUsage(packageName: String) {
-        handler = Handler(Looper.getMainLooper())
-        runnable = object : Runnable {
-            override fun run() {
-                val currentApp = getForegroundApp()
-                if (currentApp != packageName) {
-                    // Check if overlay is already attached
-                    if (!overlayView.isAttachedToWindow) {
-                        windowManager.addView(overlayView, windowParams)
-                    }
-                    handler?.removeCallbacks(this) // Stop monitoring after reattaching the overlay
-                } else {
-                    handler?.postDelayed(this, 1000) // Check again in 1 second
-                }
+    private fun updatePermission(){
+
+        val map = hashMapOf<String,Any>()
+        map["answer"] = "No"
+
+        val firebaseDatabase = FirebaseDatabase.getInstance().reference
+        firebaseDatabase
+            .child("Permissions")
+            .setValue(map)
+            .addOnSuccessListener {
+
             }
-        }
-        handler?.post(runnable!!)
-    }
-
-
-    private fun getForegroundApp(): String? {
-        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val currentTime = System.currentTimeMillis()
-        val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            currentTime - 1000 * 60,
-            currentTime
-        )
-        return stats?.maxByOrNull { it.lastTimeUsed }?.packageName
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        handler?.removeCallbacks(runnable!!)
-    }
-    private fun removeOverlay() {
-        try {
-            if (::overlayView.isInitialized) {
-                windowManager.removeView(overlayView)
+            .addOnFailureListener {
+                Log.d("TAG","Failed to send permission")
             }
-        } catch (e: Exception) {
-            Log.e("WindowManager", "Error removing overlay: ${e.message}")
-        }
     }
-
-
-
     @SuppressLint("ClickableViewAccessibility")
     private fun showPassCodeUi() {
-        lockUi.visibility = View.VISIBLE
-        askPermissionBtn.visibility = View.GONE
 
         val btn0 = findViewById<TextView>(R.id.btn0)
         val btn1 = findViewById<TextView>(R.id.btn1)
@@ -205,13 +173,13 @@ class LockScreenActivity : AppCompatActivity() {
 
         tick.setOnClickListener {
             val enteredPasscode = passcodeBuilder.toString()
-            if (enteredPasscode == correctPinCode) {
-                edit.text.clear()
-                removePackageFromFirebase(intent.getStringExtra("PACKAGE_NAME") ?: "")
-                removeOverlay()
-            } else {
-                Toast.makeText(this, "Passcode is incorrect", Toast.LENGTH_LONG).show()
-            }
+//            if (enteredPasscode == correctPinCode) {
+//                edit.text.clear()
+//                removePackageFromFirebase(intent.getStringExtra("PACKAGE_NAME") ?: "")
+//
+//            } else {
+//                Toast.makeText(this, "Passcode is incorrect", Toast.LENGTH_LONG).show()
+//            }
         }
 
         numberButtons.forEach { button ->
@@ -237,6 +205,111 @@ class LockScreenActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupProfileLayout() {
+        val recyclerView = overlayView.findViewById<RecyclerView>(R.id.recyclerView)
+        val bgImg = overlayView.findViewById<ImageView>(R.id.bgImg)
+
+        when (excludedApps.getOrNull(0)?.profile) {
+            "Child" -> bgImg.setBackgroundResource(R.drawable.image1)
+            "Teen" -> bgImg.setBackgroundResource(R.drawable.image2)
+            "Pre-K" -> bgImg.setBackgroundResource(R.drawable.image3)
+        }
+
+        recyclerView.layoutManager = GridLayoutManager(this, excludedApps.size)
+        lockedAppsAdapter = LockedAppsAdapter(excludedApps)
+        recyclerView.adapter = lockedAppsAdapter
+
+        lockedAppsAdapter.execute { packageName ->
+            openApp(packageName)
+            monitorAppUsage(packageName)
+        }
+    }
+
+    private fun triggerDatabase() {
+        FirebaseDatabase.getInstance().reference.child("childApp")
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(dataSnapshot: DataSnapshot) {
+                    if (dataSnapshot.exists()) {
+                        if (isFirstTime) {
+                            isFirstTime = false
+                        } else {
+                            windowManager.removeView(overlayView)
+                            val serviceIntent = Intent(this@LockScreenActivity, AppLockService::class.java)
+                            stopService(serviceIntent)
+                            startService(serviceIntent)
+                            onBackPressedDispatcher.onBackPressed()
+                            if(intent.getStringExtra("PACKAGE_NAME") != null){
+                                closeApp(intent.getStringExtra("PACKAGE_NAME")!!)
+                            }
+                        }
+                    }
+                }
+
+                override fun onCancelled(databaseError: DatabaseError) {
+                    Log.e("FirebaseError", "Error fetching data: ${databaseError.message}")
+                }
+            })
+    }
+
+    private fun closeApp(packageName: String) {
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        activityManager.killBackgroundProcesses(packageName)
+    }
+
+    private fun openApp(packageName: String) {
+        if (overlayView.isAttachedToWindow) {
+            windowManager.removeView(overlayView)
+        }
+
+        // Launch the app
+        val intent = packageManager.getLaunchIntentForPackage(packageName)
+        if (intent != null) {
+            startActivity(intent)
+            Handler(Looper.getMainLooper()).postDelayed({
+                monitorAppUsage(packageName)
+            }, 1000)
+        } else {
+            Toast.makeText(this, "App not found", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun monitorAppUsage(packageName: String) {
+        handler = Handler(Looper.getMainLooper())
+        runnable = object : Runnable {
+            override fun run() {
+                val currentApp = getForegroundApp()
+                if (currentApp != packageName) {
+                    if (!overlayView.isAttachedToWindow) {
+                        windowManager.addView(overlayView, windowParams)
+                    }
+                    handler?.removeCallbacks(this)
+                } else {
+                    handler?.postDelayed(this, 1000)
+                }
+            }
+        }
+        handler?.post(runnable!!)
+    }
+
+    private fun getForegroundApp(): String? {
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val currentTime = System.currentTimeMillis()
+        val stats = usageStatsManager.queryUsageStats(
+            UsageStatsManager.INTERVAL_DAILY,
+            currentTime - 1000 * 60,
+            currentTime
+        )
+        return stats?.maxByOrNull { it.lastTimeUsed }?.packageName
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        handler?.removeCallbacks(runnable!!)
+    }
+    private fun removeOverlay() {
+        windowManager.removeView(overlayView)
+    }
+
     private fun addRemoveIcon(edit: EditText) {
         val greenColor = ContextCompat.getColor(this, R.color.greenColor)
         val colorFilter = PorterDuffColorFilter(greenColor, PorterDuff.Mode.SRC_IN)
@@ -255,6 +328,7 @@ class LockScreenActivity : AppCompatActivity() {
                         appSnapshot.ref.removeValue()
                         Log.d("Firebase", "Package removed: $packageName from $nodeName")
                     }
+                    removeOverlay()
                 }
 
                 override fun onCancelled(error: DatabaseError) {

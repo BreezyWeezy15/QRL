@@ -33,12 +33,16 @@ class AppLockService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val PACKAGE_NAME_KEY = "package_name"
         private const val PIN_CODE_KEY = "pin_code"
+        private const val NAME_KEY = "name"
+        private const val ICON_KEY = "icon"
+        private const val PROFILE_TYPE_KEY = "profile_type"
+        private const val INTERVAL_KEY = "interval"
     }
 
     private lateinit var sharedPreferences: SharedPreferences
     private val handler = Handler(Looper.getMainLooper())
     private val lockedApps = mutableListOf<LockedApp>()
-    private val appPinCodes = mutableMapOf<String, String>()
+    private val appPinCodes = mutableMapOf<String, Int>()
     private var currentProfile = ""
     private lateinit var database: DatabaseReference
 
@@ -77,15 +81,14 @@ class AppLockService : Service() {
     private fun updateLockedApps(dataSnapshot: DataSnapshot) {
         appPinCodes.clear()
         lockedApps.clear()
-
-
-        lockedApps.clear()
         for (childSnapshot in dataSnapshot.children) {
             val packageName = childSnapshot.child(PACKAGE_NAME_KEY).getValue(String::class.java) ?: ""
             val pinCode = childSnapshot.child(PIN_CODE_KEY).getValue(String::class.java) ?: ""
-            val name = childSnapshot.child("name").getValue(String::class.java) ?: ""
-            val icon = childSnapshot.child("icon").getValue(String::class.java) ?: ""
-            val profileName = childSnapshot.child("profile_type").getValue(String::class.java) ?: ""
+            val name = childSnapshot.child(NAME_KEY).getValue(String::class.java) ?: ""
+            val icon = childSnapshot.child(ICON_KEY).getValue(String::class.java) ?: ""
+            val profileName = childSnapshot.child(PROFILE_TYPE_KEY).getValue(String::class.java) ?: ""
+            val interval = childSnapshot.child(INTERVAL_KEY).getValue(String::class.java) ?: ""
+            removeOverlayTemporarily(interval.toInt())
             currentProfile = profileName
 
 
@@ -93,7 +96,7 @@ class AppLockService : Service() {
                 lockedApps.add(LockedApp(name,packageName,icon,profileName))
             } else {
                 if (pinCode.isNotEmpty() && pinCode != "0") {
-                    appPinCodes[packageName] = pinCode
+                    appPinCodes[packageName] = interval.toInt()
                 }
             }
         }
@@ -132,21 +135,24 @@ class AppLockService : Service() {
             val excludedPackages = listOf("com.app.lockcomposeLock", "com.app.lockcomposeChild")
 
             if (currentApp != null && currentApp !in excludedPackages) {
-                // Check if the current app is the settings package
-                if (currentApp == "com.android.settings") {
-                    navigateToLockScreen()
-                }
 
-                // Check if there are app pin codes and the current app is one of them
                 if (appPinCodes.isNotEmpty() && appPinCodes.containsKey(currentApp)) {
-                    showLockScreen(currentApp)
+                    if (currentApp == "com.android.settings") {
+                        navigateToLockScreen()
+                    } else {
+                        showLockScreen(currentApp)
+                    }
+
                 }
 
-                // Handle the case where there are no app pin codes
-                if (appPinCodes.isEmpty() && currentApp !in excludedPackages) {
+                if (appPinCodes.isEmpty() && lockedApps.isNotEmpty() && currentApp !in excludedPackages) {
                     val isLockedApp = lockedApps.any { it.packageName.trim().lowercase() == currentApp.trim().lowercase() }
                     if (!isLockedApp) {
-                        navigateToLockScreen()
+                        if (currentApp == "com.android.settings") {
+                            navigateToLockScreen()
+                        } else {
+                            navigateToLockScreen()
+                        }
                     }
                 }
             }
@@ -155,10 +161,59 @@ class AppLockService : Service() {
 
     }
 
+    private fun removeOverlayTemporarily(interval : Int) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            Toast.makeText(this,"Triggered",Toast.LENGTH_SHORT).show()
+            updatePermission()
+            updateLayout()
+        }, (interval * 60 * 1000).toLong()) // 5 minutes in milliseconds
+    }
+
+    private fun updateLayout(){
+        val firebaseDatabase = FirebaseDatabase.getInstance().reference
+        firebaseDatabase
+            .child("Permissions")
+            .addValueEventListener(object  : ValueEventListener {
+                override fun onDataChange(dataSnapShot: DataSnapshot) {
+                    if (dataSnapShot.exists()) {
+                        val data = dataSnapShot.child("answer").getValue(String::class.java)
+                        if (!data.isNullOrEmpty()) {
+                            if (data == "No") {
+                                showLockScreen(getPackage())
+                            }
+                        }
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+
+                }
+            })
+    }
+
+
+    private fun updatePermission(){
+
+        val map = hashMapOf<String,Any>()
+        map["answer"] = "No"
+
+        val firebaseDatabase = FirebaseDatabase.getInstance().reference
+        firebaseDatabase
+            .child("Permissions")
+            .setValue(map)
+            .addOnSuccessListener {
+
+            }
+            .addOnFailureListener {
+                Log.d("TAG","Failed to send permission")
+            }
+    }
+
     private fun showLockScreen(packageName: String) {
+        savePackage(packageName)
         val lockIntent = Intent(this, LockScreenActivity::class.java).apply {
             putExtra("PACKAGE_NAME", packageName)
-            putExtra("PIN_CODE", appPinCodes[packageName])
+            putExtra("INTERVAL", appPinCodes[packageName])
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         startActivity(lockIntent)
@@ -186,5 +241,16 @@ class AppLockService : Service() {
             .setSmallIcon(R.drawable.baseline_lock_24)
             .setContentIntent(pendingIntent)
             .build()
+    }
+
+    private fun savePackage(packageName : String){
+        val prefs = getSharedPreferences("prefs",Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+        editor.putString("package",packageName)
+        editor.apply()
+    }
+    private fun getPackage() : String {
+        val prefs = getSharedPreferences("prefs",Context.MODE_PRIVATE)
+        return prefs.getString("package","")!!
     }
 }
