@@ -161,12 +161,11 @@ class AppLockService : Service() {
 
     }
 
-    private fun removeOverlayTemporarily(interval : Int) {
+    private fun removeOverlayTemporarily(interval: Int) {
+        val delayMillis = (interval * 60 * 1000).toLong()
         Handler(Looper.getMainLooper()).postDelayed({
-            Toast.makeText(this,"Triggered",Toast.LENGTH_SHORT).show()
             updatePermission()
-            updateLayout()
-        }, (interval * 60 * 1000).toLong()) // 5 minutes in milliseconds
+        }, delayMillis)
     }
 
     private fun updateLayout(){
@@ -177,8 +176,9 @@ class AppLockService : Service() {
                 override fun onDataChange(dataSnapShot: DataSnapshot) {
                     if (dataSnapShot.exists()) {
                         val data = dataSnapShot.child("answer").getValue(String::class.java)
+                        val type = dataSnapShot.child("type").getValue(String::class.java)
                         if (!data.isNullOrEmpty()) {
-                            if (data == "No") {
+                            if (data == "No" && type == "Custom") {
                                 showLockScreen(getPackage())
                             }
                         }
@@ -196,16 +196,17 @@ class AppLockService : Service() {
 
         val map = hashMapOf<String,Any>()
         map["answer"] = "No"
+        map["type"] = "Custom"
 
         val firebaseDatabase = FirebaseDatabase.getInstance().reference
         firebaseDatabase
             .child("Permissions")
             .setValue(map)
             .addOnSuccessListener {
-
+                updateLayout()
             }
             .addOnFailureListener {
-                Log.d("TAG","Failed to send permission")
+
             }
     }
 

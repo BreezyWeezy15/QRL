@@ -63,6 +63,8 @@ class LockScreenActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setOverlayLayout() {
+
+        var isExecuted = false
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         overlayView = LayoutInflater.from(this).inflate(
@@ -84,27 +86,29 @@ class LockScreenActivity : AppCompatActivity() {
             height = WindowManager.LayoutParams.MATCH_PARENT
         }
 
+
+
         if (excludedApps.isEmpty()) {
             setContentView(R.layout.widget_layout)
-            lockUi = findViewById(R.id.lockUi)
-
             val firebaseDatabase = FirebaseDatabase.getInstance().reference
             firebaseDatabase
                 .child("Permissions")
-                .addValueEventListener(object  : ValueEventListener {
+                .addListenerForSingleValueEvent(object  : ValueEventListener {
                     override fun onDataChange(dataSnapShot: DataSnapshot) {
                         if (dataSnapShot.exists()) {
                             val data = dataSnapShot.child("answer").getValue(String::class.java)
                             if (!data.isNullOrEmpty()) {
                                 if (data == "Yes") {
-                                    removeOverlayTemporarily(correctPinCode!!)
+                                    if(!isExecuted){
+                                        Toast.makeText(this@LockScreenActivity,"REMOVE OVERLAY VIEW",Toast.LENGTH_SHORT).show()
+                                        isExecuted = true
+                                        removeOverlayTemporarily()
+                                    }
                                 } else {
+                                    Toast.makeText(this@LockScreenActivity,"SHOWING PASS CODE",Toast.LENGTH_SHORT).show()
                                     addOverlayView()
                                     showPassCodeUi()
                                 }
-                            } else {
-                                addOverlayView()
-                                showPassCodeUi()
                             }
                         }
                     }
@@ -121,88 +125,16 @@ class LockScreenActivity : AppCompatActivity() {
     }
 
     private fun addOverlayView() {
-        if (overlayView.parent == null) {
-            windowManager.addView(overlayView, windowParams)
-        }
+        windowManager.addView(overlayView, windowParams)
     }
 
-    private fun removeOverlayTemporarily(interval : Int) {
+    private fun removeOverlayTemporarily() {
         windowManager.removeView(overlayView)
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            Toast.makeText(this,"Triggered",Toast.LENGTH_SHORT).show()
-            updatePermission()
-            addOverlayView()
-        }, (interval * 60 * 1000).toLong()) // 5 minutes in milliseconds
     }
 
-    private fun updatePermission(){
-
-        val map = hashMapOf<String,Any>()
-        map["answer"] = "No"
-
-        val firebaseDatabase = FirebaseDatabase.getInstance().reference
-        firebaseDatabase
-            .child("Permissions")
-            .setValue(map)
-            .addOnSuccessListener {
-
-            }
-            .addOnFailureListener {
-                Log.d("TAG","Failed to send permission")
-            }
-    }
     @SuppressLint("ClickableViewAccessibility")
     private fun showPassCodeUi() {
 
-        val btn0 = findViewById<TextView>(R.id.btn0)
-        val btn1 = findViewById<TextView>(R.id.btn1)
-        val btn2 = findViewById<TextView>(R.id.btn2)
-        val btn3 = findViewById<TextView>(R.id.btn3)
-        val btn4 = findViewById<TextView>(R.id.btn4)
-        val btn5 = findViewById<TextView>(R.id.btn5)
-        val btn6 = findViewById<TextView>(R.id.btn6)
-        val btn7 = findViewById<TextView>(R.id.btn7)
-        val btn8 = findViewById<TextView>(R.id.btn8)
-        val btn9 = findViewById<TextView>(R.id.btn9)
-        val tick = findViewById<ImageView>(R.id.tick)
-        val edit = findViewById<EditText>(R.id.passCodeEdit)
-
-        val passcodeBuilder = StringBuilder()
-        val numberButtons = listOf(btn0, btn1, btn2, btn3, btn4, btn5, btn6, btn7, btn8, btn9)
-
-        tick.setOnClickListener {
-            val enteredPasscode = passcodeBuilder.toString()
-//            if (enteredPasscode == correctPinCode) {
-//                edit.text.clear()
-//                removePackageFromFirebase(intent.getStringExtra("PACKAGE_NAME") ?: "")
-//
-//            } else {
-//                Toast.makeText(this, "Passcode is incorrect", Toast.LENGTH_LONG).show()
-//            }
-        }
-
-        numberButtons.forEach { button ->
-            button.setOnClickListener {
-                passcodeBuilder.append(button.text)
-                edit.setText(passcodeBuilder.toString())
-            }
-        }
-
-        addRemoveIcon(edit)
-        edit.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
-                val drawableEnd = edit.compoundDrawablesRelative[2]
-                if (drawableEnd != null && event.rawX >= edit.right - drawableEnd.bounds.width()) {
-                    if (passcodeBuilder.isNotEmpty()) {
-                        passcodeBuilder.deleteCharAt(passcodeBuilder.length - 1)
-                        edit.setText(passcodeBuilder.toString())
-                    }
-                    return@setOnTouchListener true
-                }
-            }
-            false
-        }
     }
 
     private fun setupProfileLayout() {
