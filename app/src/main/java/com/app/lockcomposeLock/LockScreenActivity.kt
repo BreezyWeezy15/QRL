@@ -19,6 +19,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -42,7 +43,7 @@ class LockScreenActivity : AppCompatActivity() {
     private var isFirstTime = true
     private var handler: Handler? = null
     private var runnable: Runnable? = null
-    private lateinit var lockUi: LinearLayout
+    private lateinit var lockUi: FrameLayout
     private var correctPinCode: Int? = null
     private var excludedApps: List<LockedApp> = listOf()
     private lateinit var lockedAppsAdapter: LockedAppsAdapter
@@ -64,7 +65,6 @@ class LockScreenActivity : AppCompatActivity() {
     @SuppressLint("ClickableViewAccessibility")
     private fun setOverlayLayout() {
 
-        var isExecuted = false
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         overlayView = LayoutInflater.from(this).inflate(
@@ -86,24 +86,21 @@ class LockScreenActivity : AppCompatActivity() {
             height = WindowManager.LayoutParams.MATCH_PARENT
         }
 
-
-
         if (excludedApps.isEmpty()) {
             setContentView(R.layout.widget_layout)
+            lockUi = findViewById(R.id.lockUi)
             val firebaseDatabase = FirebaseDatabase.getInstance().reference
             firebaseDatabase
                 .child("Permissions")
+                .child(Extras.generateDeviceID(this))
                 .addListenerForSingleValueEvent(object  : ValueEventListener {
                     override fun onDataChange(dataSnapShot: DataSnapshot) {
                         if (dataSnapShot.exists()) {
                             val data = dataSnapShot.child("answer").getValue(String::class.java)
                             if (!data.isNullOrEmpty()) {
                                 if (data == "Yes") {
-                                    if(!isExecuted){
-                                        Toast.makeText(this@LockScreenActivity,"REMOVE OVERLAY VIEW",Toast.LENGTH_SHORT).show()
-                                        isExecuted = true
-                                        removeOverlayTemporarily()
-                                    }
+                                    Toast.makeText(this@LockScreenActivity,"REMOVE OVERLAY VIEW",Toast.LENGTH_SHORT).show()
+                                    removeOverlayTemporarily()
                                 } else {
                                     Toast.makeText(this@LockScreenActivity,"SHOWING PASS CODE",Toast.LENGTH_SHORT).show()
                                     addOverlayView()

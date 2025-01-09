@@ -19,6 +19,7 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import com.app.lockcomposeLock.Extras
 import com.app.lockcomposeLock.LockScreenActivity
 import com.app.lockcomposeLock.MainActivity
 import com.app.lockcomposeLock.R
@@ -67,7 +68,7 @@ class AppLockService : Service() {
     }
 
     private fun fetchLockedPackages() {
-        database.child("childApp").child(generateDeviceID(this)).addValueEventListener(object : ValueEventListener {
+        database.child("childApp").child(Extras.generateDeviceID(this)).addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 if (dataSnapshot.exists()) {
                     updateLockedApps(dataSnapshot)
@@ -174,6 +175,7 @@ class AppLockService : Service() {
         val firebaseDatabase = FirebaseDatabase.getInstance().reference
         firebaseDatabase
             .child("Permissions")
+            .child(Extras.generateDeviceID(this))
             .addValueEventListener(object  : ValueEventListener {
                 override fun onDataChange(dataSnapShot: DataSnapshot) {
                     if (dataSnapShot.exists()) {
@@ -193,10 +195,6 @@ class AppLockService : Service() {
             })
     }
 
-    @SuppressLint("HardwareIds")
-    fun generateDeviceID(context: Context): String {
-        return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-    }
 
     private fun updatePermission(){
 
@@ -207,6 +205,7 @@ class AppLockService : Service() {
         val firebaseDatabase = FirebaseDatabase.getInstance().reference
         firebaseDatabase
             .child("Permissions")
+            .child(Extras.generateDeviceID(this))
             .setValue(map)
             .addOnSuccessListener {
                 updateLayout()
