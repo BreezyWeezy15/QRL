@@ -6,6 +6,7 @@ import android.content.res.Resources
 import android.graphics.BitmapFactory
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.provider.Settings
 import android.util.Base64
 import android.util.Log
 import android.widget.Toast
@@ -72,7 +73,7 @@ fun ShowAppList() {
     }
 
     LaunchedEffect(Unit) {
-        fetchAppsFromFirebase { apps, type ->
+        fetchAppsFromFirebase(context) { apps, type ->
             selectedApps.clear()
             selectedApps.addAll(apps)
             isLoading.value = false
@@ -176,10 +177,15 @@ fun checkForAppUpdate(context: Context) {
     }
 }
 
-private fun fetchAppsFromFirebase(onAppsFetched: (List<InstalledApps>, String) -> Unit) {
+@SuppressLint("HardwareIds")
+fun generateDeviceID(context: Context): String {
+    return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+}
+
+private fun fetchAppsFromFirebase(context: Context,onAppsFetched: (List<InstalledApps>, String) -> Unit) {
 
     val database = FirebaseDatabase.getInstance().reference
-    val appsListRef = database.child("childApp")
+    val appsListRef = database.child("childApp").child(generateDeviceID(context = context))
 
     appsListRef.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(dataSnapshot: DataSnapshot) {

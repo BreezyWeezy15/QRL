@@ -1,5 +1,6 @@
 package com.app.lockcomposeLock.services
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
@@ -65,7 +67,7 @@ class AppLockService : Service() {
     }
 
     private fun fetchLockedPackages() {
-        database.child("childApp").addValueEventListener(object : ValueEventListener {
+        database.child("childApp").child(generateDeviceID(this)).addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
                 if (dataSnapshot.exists()) {
                     updateLockedApps(dataSnapshot)
@@ -191,6 +193,10 @@ class AppLockService : Service() {
             })
     }
 
+    @SuppressLint("HardwareIds")
+    fun generateDeviceID(context: Context): String {
+        return Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+    }
 
     private fun updatePermission(){
 
