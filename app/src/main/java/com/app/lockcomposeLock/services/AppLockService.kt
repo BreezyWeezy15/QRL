@@ -141,7 +141,7 @@ class AppLockService : Service() {
 
                 if (appPinCodes.isNotEmpty() && appPinCodes.containsKey(currentApp)) {
                     if (currentApp == "com.android.settings") {
-                        navigateToLockScreen()
+                        showLockScreen(currentApp)
                     } else {
                         showLockScreen(currentApp)
                     }
@@ -165,10 +165,12 @@ class AppLockService : Service() {
     }
 
     private fun removeOverlayTemporarily(interval: Int) {
-        val delayMillis = (interval * 60 * 1000).toLong()
-        Handler(Looper.getMainLooper()).postDelayed({
-            updatePermission()
-        }, delayMillis)
+        if(interval.toString() != "0"){
+            val delayMillis = (interval * 60 * 1000).toLong()
+            Handler(Looper.getMainLooper()).postDelayed({
+                updatePermission()
+            }, delayMillis)
+        }
     }
 
     private fun updateLayout(){

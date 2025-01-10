@@ -78,10 +78,6 @@ class LockScreenActivity : AppCompatActivity() {
                 WindowManager.LayoutParams.TYPE_PHONE
             }
             format = PixelFormat.TRANSLUCENT
-            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             width = WindowManager.LayoutParams.MATCH_PARENT
             height = WindowManager.LayoutParams.MATCH_PARENT
         }
@@ -116,6 +112,7 @@ class LockScreenActivity : AppCompatActivity() {
 
                 })
         } else {
+            addOverlayView()
             setContentView(R.layout.profile_layout)
             setupProfileLayout()
         }
