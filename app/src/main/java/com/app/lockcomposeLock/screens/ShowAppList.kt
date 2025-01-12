@@ -46,9 +46,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import com.app.lockcomposeLock.R
 import com.app.lockcomposeLock.services.AppLockService
 import com.google.android.play.core.appupdate.AppUpdateInfo
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
@@ -67,11 +69,13 @@ fun ShowAppList() {
     val selectedApps = remember { mutableStateListOf<InstalledApps>() }
     val isLoading = remember { mutableStateOf(true) }
 
+    // Start the AppLockService
     LaunchedEffect(Unit) {
         val serviceIntent = Intent(context, AppLockService::class.java)
         context.startService(serviceIntent)
     }
 
+    // Fetch apps from Firebase
     LaunchedEffect(Unit) {
         fetchAppsFromFirebase(context) { apps, type ->
             selectedApps.clear()
@@ -93,6 +97,7 @@ fun ShowAppList() {
         }
     ) { innerPadding ->
         if (isLoading.value) {
+            // Show loading indicator
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -103,7 +108,22 @@ fun ShowAppList() {
                     color = Color.Gray
                 )
             }
+        } else if (selectedApps.isEmpty()) {
+            // Show the "no_device.png" icon when no apps are available
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.no_device),
+                    contentDescription = "No Devices",
+                    modifier = Modifier.size(70.dp) 
+                )
+            }
         } else {
+            // Show the list of apps
             LazyColumn(
                 modifier = Modifier.padding(innerPadding)
             ) {
@@ -116,6 +136,7 @@ fun ShowAppList() {
         }
     }
 }
+
 
 @Composable
 fun AppListItem(app: InstalledApps) {

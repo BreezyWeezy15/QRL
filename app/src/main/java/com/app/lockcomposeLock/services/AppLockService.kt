@@ -46,7 +46,6 @@ class AppLockService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val lockedApps = mutableListOf<LockedApp>()
     private val appPinCodes = mutableMapOf<String, Int>()
-    private var currentProfile = ""
     private lateinit var database: DatabaseReference
 
     private val runnable = object : Runnable {
@@ -92,8 +91,6 @@ class AppLockService : Service() {
             val profileName = childSnapshot.child(PROFILE_TYPE_KEY).getValue(String::class.java) ?: ""
             val interval = childSnapshot.child(INTERVAL_KEY).getValue(String::class.java) ?: ""
             removeOverlayTemporarily(interval.toInt())
-            currentProfile = profileName
-
 
             if (profileName in listOf("Child", "Teen", "Pre-K") && packageName.isNotEmpty()) {
                 lockedApps.add(LockedApp(name,packageName,icon,profileName))
@@ -185,7 +182,7 @@ class AppLockService : Service() {
                         val type = dataSnapShot.child("type").getValue(String::class.java)
                         if (!data.isNullOrEmpty()) {
                             if (data == "No" && type == "Custom") {
-                                showLockScreen(getPackage())
+                                showLockScreen(Extras.getPackage(this@AppLockService))
                             }
                         }
                     }
@@ -196,7 +193,6 @@ class AppLockService : Service() {
                 }
             })
     }
-
 
     private fun updatePermission(){
 
@@ -218,7 +214,7 @@ class AppLockService : Service() {
     }
 
     private fun showLockScreen(packageName: String) {
-        savePackage(packageName)
+        Extras.savePackage(this,packageName)
         val lockIntent = Intent(this, LockScreenActivity::class.java).apply {
             putExtra("PACKAGE_NAME", packageName)
             putExtra("INTERVAL", appPinCodes[packageName])
@@ -251,14 +247,5 @@ class AppLockService : Service() {
             .build()
     }
 
-    private fun savePackage(packageName : String){
-        val prefs = getSharedPreferences("prefs",Context.MODE_PRIVATE)
-        val editor = prefs.edit()
-        editor.putString("package",packageName)
-        editor.apply()
-    }
-    private fun getPackage() : String {
-        val prefs = getSharedPreferences("prefs",Context.MODE_PRIVATE)
-        return prefs.getString("package","")!!
-    }
+
 }

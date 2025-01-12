@@ -33,9 +33,6 @@ class LockedAppsAdapter(private val lockedApps: List<LockedApp>) : RecyclerView.
         val lockedApp = lockedApps[position]
 
         holder.appNameTextView.text = lockedApp.appName
-
-        Log.d("TAGZ","VALUE " + lockedApp.appName)
-
         val decodedByteArray: ByteArray = Base64.decode(lockedApp.appIcon, Base64.DEFAULT)
         val decodedBitmap: Bitmap = BitmapFactory.decodeByteArray(decodedByteArray, 0, decodedByteArray.size)
         holder.appIconImageView.setImageBitmap(decodedBitmap)

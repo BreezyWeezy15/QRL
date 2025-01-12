@@ -53,7 +53,7 @@ class RecentAppsAccessibilityService : AccessibilityService() {
     private fun fetchLockedPackages() {
         database.child("childApp").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(dataSnapshot: DataSnapshot) {
-                appPinCodes.clear() // Clear previous data
+                appPinCodes.clear()
 
                 for (childSnapshot in dataSnapshot.children) {
                     val packageName = childSnapshot.child("package_name").getValue(String::class.java) ?: ""
