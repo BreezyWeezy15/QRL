@@ -28,7 +28,7 @@ import com.google.firebase.database.ValueEventListener
 
 class LockScreenActivity : AppCompatActivity() {
 
-    private lateinit var powerOff: ImageView
+    private var shuffledID = 0L
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
     private lateinit var lockUi: FrameLayout
@@ -50,7 +50,43 @@ class LockScreenActivity : AppCompatActivity() {
 
         triggerDatabase()
         setOverlayLayout()
+        openChildApp()
     }
+
+
+    private fun openChildApp() {
+        // Get a reference to the Firebase database
+        FirebaseDatabase.getInstance().getReference("Profiles")
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+
+                        val randomID = snapshot.child("randomID").getValue(Long::class.java) ?: 0L
+
+                        if (shuffledID != randomID) {
+                            openApp("com.app.lockcomposeChild")
+                            monitorAppUsage("com.app.lockcomposeChild")
+                            shuffledID = randomID
+                            updateProfile()
+                        }
+                    } else {
+                        Log.w("openChildApp", "No data found in 'Profiles'.")
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e("openChildApp", "Database error: ${error.message}")
+                }
+            })
+    }
+
+
+    private fun updateProfile(){
+        FirebaseDatabase.getInstance().getReference()
+            .child("Profiles")
+            .removeValue()
+    }
+
 
     private fun setOverlayLayout() {
 
@@ -83,21 +119,13 @@ class LockScreenActivity : AppCompatActivity() {
 
         if (excludedApps.isEmpty()) {
             lockUi = overlayView!!.findViewById(R.id.lockUi)
-            powerOff = overlayView!!.findViewById(R.id.power)
             unlockScreen()
         } else {
-            powerOff = overlayView!!.findViewById(R.id.power)
             setupProfileLayout()
             addOverlayView()
         }
 
-        powerOff.setOnClickListener {
-            openApp("com.app.lockcomposeChild")
-            monitorAppUsage("com.app.lockcomposeChild")
-        }
     }
-
-
 
     private fun unlockScreen() {
         val firebaseDatabase = FirebaseDatabase.getInstance().reference

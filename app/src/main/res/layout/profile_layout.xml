@@ -66,20 +66,6 @@
 
             </androidx.cardview.widget.CardView>
 
-            <Space
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"/>
-
-            <ImageView
-                android:id="@+id/power"
-                android:layout_width="25dp"
-                android:layout_height="25dp"
-                android:layout_gravity="center"
-                android:layout_marginEnd="10dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:src="@drawable/power"/>
 
         </LinearLayout>
 
