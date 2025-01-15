@@ -109,7 +109,6 @@ fun ShowAppList() {
                 )
             }
         } else if (selectedApps.isEmpty()) {
-            // Show the "no_device.png" icon when no apps are available
             Box(
                 modifier = Modifier
                     .fillMaxSize()

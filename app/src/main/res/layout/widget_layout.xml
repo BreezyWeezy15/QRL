@@ -6,4 +6,16 @@
     android:background="@drawable/ig">
 
 
+
+    <ImageView
+        android:id="@+id/power"
+        android:layout_width="25dp"
+        android:layout_height="25dp"
+        android:layout_marginEnd="10dp"
+        android:layout_gravity="end"
+        android:layout_margin="20dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:src="@drawable/power"/>
+
 </FrameLayout>

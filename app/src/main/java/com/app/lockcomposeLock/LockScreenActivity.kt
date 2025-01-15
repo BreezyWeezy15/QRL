@@ -5,8 +5,6 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -15,12 +13,10 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.app.lockcomposeLock.models.LockedApp
@@ -32,32 +28,39 @@ import com.google.firebase.database.ValueEventListener
 
 class LockScreenActivity : AppCompatActivity() {
 
-    private var isFirstTime = true
+    private lateinit var powerOff: ImageView
+    private lateinit var windowManager: WindowManager
+    private var overlayView: View? = null
+    private lateinit var lockUi: FrameLayout
+    private lateinit var windowParams: WindowManager.LayoutParams
+    private var excludedApps: List<LockedApp> = listOf()
     private var handler: Handler? = null
     private var runnable: Runnable? = null
-    private lateinit var lockUi: FrameLayout
-    private var excludedApps: List<LockedApp> = listOf()
     private lateinit var lockedAppsAdapter: LockedAppsAdapter
-    private lateinit var windowManager: WindowManager
-    private lateinit var windowParams: WindowManager.LayoutParams
-    private lateinit var overlayView: View
+    private var isFirstTime = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         excludedApps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableArrayListExtra("LOCKED_APPS",LockedApp::class.java) ?: mutableListOf()
+            intent.getParcelableArrayListExtra("LOCKED_APPS", LockedApp::class.java) ?: mutableListOf()
         } else {
             intent.getParcelableArrayListExtra("LOCKED_APPS") ?: mutableListOf()
         }
 
         triggerDatabase()
         setOverlayLayout()
-
     }
 
-
     private fun setOverlayLayout() {
+
+        overlayView?.let {
+            if (it.isAttachedToWindow) {
+                windowManager.removeView(overlayView)
+                overlayView = null
+            }
+        }
+
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -74,18 +77,27 @@ class LockScreenActivity : AppCompatActivity() {
             format = PixelFormat.TRANSLUCENT
             width = WindowManager.LayoutParams.MATCH_PARENT
             height = WindowManager.LayoutParams.MATCH_PARENT
+            flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
         }
 
         if (excludedApps.isEmpty()) {
-            setContentView(R.layout.widget_layout)
-            lockUi = findViewById(R.id.lockUi)
+            lockUi = overlayView!!.findViewById(R.id.lockUi)
+            powerOff = overlayView!!.findViewById(R.id.power)
             unlockScreen()
         } else {
-            addOverlayView()
-            setContentView(R.layout.profile_layout)
+            powerOff = overlayView!!.findViewById(R.id.power)
             setupProfileLayout()
+            addOverlayView()
+        }
+
+        powerOff.setOnClickListener {
+            openApp("com.app.lockcomposeChild")
+            monitorAppUsage("com.app.lockcomposeChild")
         }
     }
+
+
 
     private fun unlockScreen() {
         val firebaseDatabase = FirebaseDatabase.getInstance().reference
@@ -116,7 +128,9 @@ class LockScreenActivity : AppCompatActivity() {
     }
 
     private fun addOverlayView() {
-        windowManager.addView(overlayView, windowParams)
+        if(!overlayView!!.isAttachedToWindow){
+            windowManager.addView(overlayView, windowParams)
+        }
     }
 
     private fun removeOverlayTemporarily() {
@@ -124,8 +138,9 @@ class LockScreenActivity : AppCompatActivity() {
     }
 
     private fun setupProfileLayout() {
-        val recyclerView = overlayView.findViewById<RecyclerView>(R.id.recyclerView)
-        val bgImg = overlayView.findViewById<ImageView>(R.id.bgImg)
+
+        val recyclerView = overlayView!!.findViewById<RecyclerView>(R.id.recyclerView)
+        val bgImg = overlayView!!.findViewById<ImageView>(R.id.bgImg)
 
         when (excludedApps.getOrNull(0)?.profile) {
             "Child" -> bgImg.setBackgroundResource(R.drawable.image1)
@@ -151,7 +166,9 @@ class LockScreenActivity : AppCompatActivity() {
                         if (isFirstTime) {
                             isFirstTime = false
                         } else {
-                            windowManager.removeView(overlayView)
+                            if(overlayView!!.isAttachedToWindow){
+                                windowManager.removeView(overlayView)
+                            }
                             val serviceIntent = Intent(this@LockScreenActivity, AppLockService::class.java)
                             stopService(serviceIntent)
                             startService(serviceIntent)
@@ -175,16 +192,13 @@ class LockScreenActivity : AppCompatActivity() {
     }
 
     private fun openApp(packageName: String) {
-        if (overlayView.isAttachedToWindow) {
-            windowManager.removeView(overlayView)
-        }
-
         val intent = packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
+            if (overlayView!!.isAttachedToWindow) {
+                windowManager.removeView(overlayView)
+            }
             startActivity(intent)
-            Handler(Looper.getMainLooper()).postDelayed({
-                monitorAppUsage(packageName)
-            }, 1000)
+            monitorAppUsage(packageName)
         } else {
             Toast.makeText(this, "App not found", Toast.LENGTH_SHORT).show()
         }
@@ -195,18 +209,19 @@ class LockScreenActivity : AppCompatActivity() {
         runnable = object : Runnable {
             override fun run() {
                 val currentApp = getForegroundApp()
-                if (currentApp != packageName) {
-                    if (!overlayView.isAttachedToWindow) {
-                        windowManager.addView(overlayView, windowParams)
-                    }
-                    handler?.removeCallbacks(this)
+                if (currentApp == packageName) {
+                    val serviceIntent = Intent(this@LockScreenActivity, AppLockService::class.java)
+                    stopService(serviceIntent)
+                    startService(serviceIntent)
+                    finish()
                 } else {
-                    handler?.postDelayed(this, 1000)
+                    handler?.postDelayed(this, 300)
                 }
             }
         }
         handler?.post(runnable!!)
     }
+
 
     private fun getForegroundApp(): String? {
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -219,55 +234,10 @@ class LockScreenActivity : AppCompatActivity() {
         return stats?.maxByOrNull { it.lastTimeUsed }?.packageName
     }
 
+
+
     override fun onDestroy() {
         super.onDestroy()
         handler?.removeCallbacks(runnable!!)
     }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-///////////////////////////
-//private fun addRemoveIcon(edit: EditText) {
-//    val greenColor = ContextCompat.getColor(this, R.color.greenColor)
-//    val colorFilter = PorterDuffColorFilter(greenColor, PorterDuff.Mode.SRC_IN)
-//    edit.compoundDrawablesRelative[2]?.colorFilter = colorFilter
-//}
-//
-//private fun removePackageFromFirebase(packageName: String) {
-//    val firebaseDatabase = FirebaseDatabase.getInstance().reference
-//    fun removeFromNode(nodeName: String) {
-//        val nodeReference = firebaseDatabase.child(nodeName)
-//        val query = nodeReference.orderByChild("package_name").equalTo(packageName)
-//
-//        query.addListenerForSingleValueEvent(object : ValueEventListener {
-//            override fun onDataChange(snapshot: DataSnapshot) {
-//                for (appSnapshot in snapshot.children) {
-//                    appSnapshot.ref.removeValue()
-//                    Log.d("Firebase", "Package removed: $packageName from $nodeName")
-//                }
-//                removeOverlay()
-//            }
-//
-//            override fun onCancelled(error: DatabaseError) {
-//                Log.e("FirebaseError", "Error removing package from $nodeName: ${error.message}")
-//            }
-//        })
-//    }
-//    removeFromNode("childApp")
-//    removeFromNode("Apps")
-//}
